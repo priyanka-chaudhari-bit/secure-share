@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure File Access</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 400px;
+      margin: auto;
+    }
+    h2 {
+      color: #333;
+      text-align: center;
+    }
+    label {
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h2>Access Shared File</h2>
+  <p id="status" style="color: red;"></p>
+
+  <div id="auth-form">
+    <div id="emailGroup">
+      <label for="recipientEmail">Your Email:</label>
+      <input type="email" id="recipientEmail" placeholder="Enter your email" />
+    </div>
+
+    <label for="password">File Password:</label>
+    <input type="password" id="password" placeholder="Enter file password" />
+
+    <button id="accessBtn" type="button">Access File</button>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const sid = urlParams.get('sid'); // Share ID from URL
+    const emailRequired  = urlParams.get('emailRequired') === "true"; // Email protection
+
+    const emailGroup = document.getElementById('emailGroup');
+    const statusEl = document.getElementById('status');
+    const accessBtn = document.getElementById('accessBtn');
+
+    // Hide email input if not required
+    if (!emailRequired ) {
+      emailGroup.style.display = "none";
+    }
+
+    accessBtn.onclick = async () => {
+      statusEl.style.color = "red"; // default status color
+      statusEl.textContent = "";
+
+      const password = document.getElementById('password').value.trim();
+      const payload = { sid, password, emailRequired  };
+
+      if (emailRequired ) {
+        const recipientEmail = document.getElementById('recipientEmail').value.trim();
+        if (!recipientEmail || !password) {
+          statusEl.textContent = "Please enter both email and password.";
+          return;
+        }
+        payload.recipientEmail = recipientEmail;
+      } else {
+        if (!password) {
+          statusEl.textContent = "Please enter the file password.";
+          return;
+        }
+      }
+
+      try {
+        statusEl.textContent = "Verifying and downloading file...";
+        const response = await fetch("http://localhost:5000/access-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to access file.");
+        }
+
+        const contentDisposition = response.headers.get("Content-Disposition");
+        console.log("Raw Header:", contentDisposition);
+        let fileName = "SecureFile";
+        if (contentDisposition) {
+            const cleanHeader = contentDisposition.trim();
+            const parts = cleanHeader.split(";");
+            for (let part of parts) {
+                part = part.trim();
+                if (part.toLowerCase().startsWith("filename=")) {
+                fileName = part.split("=")[1].replaceAll('"', '').trim();
+                console.log("Extracted file name:", fileName);
+                break;
+                }
+            }
+        //   const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?"?([^;\r\n"]+)/i);
+        //   if (match && match[1]) fileName = match[1];
+        }
+        
+
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        // Trigger file download
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        statusEl.style.color = "green";
+        statusEl.textContent = "File downloaded successfully!";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = err.message;
+      }
+    };
+  </script>
+</body>
+</html>

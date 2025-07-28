@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard</title>
+  <script src="script.js"></script>
+  <link rel="stylesheet" href="dashboard.css"/>
+</head>
+<body>
+  
+  <div id="profile">
+    <h1>Dashboard</h1>
+  <p id="welcome-text"></p>
+  <a href="profile.html" target="_blank"><button>My Profile</button></a>
+  </div>
+  <div style="margin: 5rem 5rem 2rem 20rem;text-align: center;background-color:rgb(181, 234, 217);height: 10rem; width: 50%; padding: 3%;">
+  <label for="file-input" class="custom-file-upload">Choose File</label>
+  <span id="file-name">No file chosen</span>
+  <input type="file" id="file-input" />
+</div>
+<button id="upload-btn">Upload File</button>
+
+
+  <div id="file-list"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getDatabase, ref as dbRef, get, set, remove, push } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+    import { firebaseConfig } from "./script.js";
+  
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+
+    const fileInput = document.getElementById('file-input');
+    const fileNameDisplay = document.getElementById('file-name');
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        fileNameDisplay.textContent = fileInput.files[0].name;
+      } else {
+        fileNameDisplay.textContent = "No file chosen";
+      }
+    });
+
+    function uploadFile(file) {
+      const user = auth.currentUser;
+      return new Promise((resolve, reject) => {
+        if (!user) {
+          reject("Not logged in");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const base64String = event.target.result;
+          const fileMetaRef = dbRef(database, 'users/' + user.uid + '/files');
+
+          push(fileMetaRef, {
+            name: file.name,
+            uploadedAt: new Date().toISOString(),
+            content: base64String
+          })
+          .then(() => resolve())
+          .catch(err => reject(err));
+        };
+
+        reader.onerror = function () {
+          reject("Failed to read file");
+        };
+
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function replaceFile(fileKey, file) {
+      const user = auth.currentUser;
+      return new Promise((resolve, reject) => {
+        if (!user) {
+          reject("Not logged in");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const base64String = event.target.result;
+          const fileRef = dbRef(database, 'users/' + user.uid + '/files/' + fileKey);
+
+          set(fileRef, {
+            name: file.name,
+            uploadedAt: new Date().toISOString(),
+            content: base64String
+          })
+          .then(() => resolve())
+          .catch(err => reject(err));
+        };
+
+        reader.onerror = function () {
+          reject("Failed to read file");
+        };
+
+        reader.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('upload-btn').addEventListener('click', () => {
+      const fileInput = document.getElementById('file-input');
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        uploadFile(file).then(() => {
+          alert("File uploaded successfully!");
+          window.location.reload();
+        }).catch(err => {
+          console.error(err);
+          alert("Upload failed.");
+        });
+      } else {
+        alert('Please select a file to upload!');
+      }
+    });
+    // Get modal elements
+const shareModal = document.getElementById('shareModal');
+const sendShareBtn = document.getElementById('sendShareBtn');
+const cancelShareBtn = document.getElementsByClassName('cancelShareBtn');
+const shareStatus = document.getElementById('shareStatus');
+
+// Cancel button
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('cancelShareBtn')) {
+    shareModal.style.display = "none";
+    clearModalFields();
+  }
+});
+
+function clearModalFields() {
+  document.getElementById('recipientEmail').value = "";
+  document.getElementById('sharePassword').value = "";
+  document.getElementById('expiryDate').value = "";
+  document.getElementById('linkExpiry').value ="";
+  shareStatus.textContent = "";
+}
+const emailOptionBtn = document.getElementById('emailOptionBtn');
+  const linkOptionBtn = document.getElementById('linkOptionBtn');
+  const emailForm = document.getElementById('emailForm');
+  const linkForm = document.getElementById('linkForm');
+function resetModalState() {
+  emailForm.style.display = "none";
+  linkForm.style.display = "none";
+
+  // Remove active class from both buttons
+  emailOptionBtn.classList.remove('active');
+  linkOptionBtn.classList.remove('active');
+}
+function openShareModal(fileKey) {
+  resetModalState(); 
+  shareModal.style.display = "flex"; 
+  shareModal.dataset.fileKey = fileKey; 
+}
+
+  emailOptionBtn.onclick = () => {
+    emailOptionBtn.classList.add('active');
+    linkOptionBtn.classList.remove('active');
+    emailForm.style.display = "block";
+    linkForm.style.display = "none";
+  };
+  linkOptionBtn.onclick = () => {
+    linkOptionBtn.classList.add('active');
+    emailOptionBtn.classList.remove('active');
+    linkForm.style.display = "block";
+    emailForm.style.display = "none";
+  };
+
+// Send Share button
+sendShareBtn.onclick = () => {
+  const recipientEmail = document.getElementById('recipientEmail').value;
+  const password = document.getElementById('sharePassword').value;
+  const expiryDate = document.getElementById('expiryDate').value;
+  const fileKey = shareModal.dataset.fileKey;
+
+  if (!recipientEmail || !password) {
+    shareStatus.style.color = "red";
+    shareStatus.textContent = "Recipient email and password are required.";
+    return;
+  }
+
+  // Call backend API to share file
+  const user = auth.currentUser;
+  console.log("ownerUid:",user.uid)
+  console.log("fileKey:",fileKey)
+  console.log("recipientEmail",recipientEmail)
+  console.log("password",password)
+  fetch("http://localhost:5000/share-file", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ownerUid: user.uid,
+      fileKey,
+      recipientEmail,
+      password,
+      expiresAt: expiryDate ? new Date(expiryDate).getTime() : null
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      shareStatus.style.color = "green";
+      shareStatus.textContent = "Link sent successfully!";
+      setTimeout(() => {
+        shareModal.style.display = "none";
+        clearModalFields();
+      }, 1500);
+    } else {
+      shareStatus.style.color = "red";
+      shareStatus.textContent = "Failed to share: " + data.error;
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    shareStatus.style.color = "red";
+    shareStatus.textContent = "Error sharing file.";
+  });
+};
+
+document.getElementById('generateLinkBtn').onclick = async () => {
+    const password = document.getElementById('linkPassword').value.trim();
+    const expiry = document.getElementById('linkExpiry').value;
+    const fileKey = shareModal.dataset.fileKey;
+    const user = auth.currentUser;
+    if (!password) {
+      alert("Password is required.");
+      return;
+    }
+
+    const payload = {
+      ownerUid: user.uid,
+      fileKey,
+      password,
+      expiresAt: expiry ? new Date(expiry).getTime() : null
+    };
+
+    try {
+      const response = await fetch('http://localhost:5000/generate-link', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        const shareLink = result.link;
+
+        // Show link in UI
+        const linkContainer = document.getElementById('linkContainer');
+        linkContainer.style.display = "block";
+        document.getElementById('generatedLink').value = shareLink;
+
+        // Copy button
+        document.getElementById('copyLinkBtn').onclick = () => {
+          const linkInput = document.getElementById('generatedLink');
+          linkInput.select();
+          document.execCommand('copy');
+          alert("Link copied to clipboard!");
+        };
+
+      } else {
+        alert("Failed to generate link.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error while generating link.");
+    }
+  };
+    // Show files
+    const fileListContainer = document.getElementById('file-list');
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById('welcome-text').innerText = `Welcome, ${user.email}`;
+
+        const userFilesRef = dbRef(database, 'users/' + user.uid + '/files');
+        get(userFilesRef).then((snapshot) => {
+          if (snapshot.exists()) {
+            const files = snapshot.val();
+            fileListContainer.innerHTML = "<h3>Your Uploaded Files:</h3>";
+
+            Object.keys(files).forEach(fileKey => {
+              const fileData = files[fileKey];
+
+              const fileDiv = document.createElement('div');
+              fileDiv.style.margin = "10px 0";
+
+              const fileName = document.createElement('span');
+                fileName.textContent = ` ${fileData.name}`;
+                fileName.style.marginRight = "10px";
+
+            
+
+              // File link
+              const fileLink = document.createElement('a');
+              fileLink.href = fileData.content;
+              fileLink.download = fileData.name;
+            //   fileLink.textContent = ` ${fileData.name}`;
+              fileLink.style.marginRight = "10px";
+              fileLink.textContent = "Download";
+            fileLink.style.display = "inline-block";
+            fileLink.style.padding = "5px 10px";
+            fileLink.style.backgroundColor = "#007bff";
+            fileLink.style.color = "#fff";
+            fileLink.style.border = "none";
+            fileLink.style.borderRadius = "4px";
+            fileLink.style.textDecoration = "none";
+            fileLink.style.marginRight = "5px";
+            fileLink.style.cursor = "pointer";
+
+              
+              // Replace button
+              const replaceBtn = document.createElement('button');
+              replaceBtn.textContent = "Replace";
+              replaceBtn.style.marginRight = "5px";
+              replaceBtn.onclick = () => {
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '*/*';
+                fileInput.onchange = () => {
+                  if (fileInput.files.length > 0) {
+                    const newFile = fileInput.files[0];
+                    replaceFile(fileKey, newFile).then(() => {
+                      alert("File replaced successfully!");
+                      window.location.reload();
+                    }).catch(err => {
+                      console.error(err);
+                      alert("Failed to replace file.");
+                    });
+                  }
+                };
+                fileInput.click(); 
+              };
+
+              // Delete button
+              const deleteBtn = document.createElement('button');
+              deleteBtn.textContent = "Delete";
+              deleteBtn.onclick = () => {
+                const fileRef = dbRef(database, 'users/' + user.uid + '/files/' + fileKey);
+                remove(fileRef).then(() => {
+                  alert("File deleted!");
+                  window.location.reload();
+                });
+              };
+
+              // Share button
+            const shareBtn = document.createElement('button');
+            shareBtn.textContent = "Share";
+            shareBtn.style.marginRight = "5px";
+            shareBtn.onclick = () => {
+              // Open modal
+              document.getElementById('shareModal').style.display = "flex";
+              
+              // Save current file details in modal dataset
+              document.getElementById('shareModal').dataset.fileKey = fileKey;
+            };
+
+              fileDiv.appendChild(fileName);
+              fileDiv.appendChild(fileLink);
+              fileDiv.appendChild(replaceBtn);
+              fileDiv.appendChild(deleteBtn);
+              fileDiv.appendChild(shareBtn);
+
+
+              fileListContainer.appendChild(fileDiv);
+            });
+            
+
+          } else {
+            fileListContainer.innerHTML = "<p>No files found.</p>";
+          }
+        });
+      } else {
+        window.location.href = "login.html"; // Redirect to login
+      }
+    });
+  </script>
+  <!-- Share Modal -->
+<div id="shareModal" style="display: none; 
+    position: fixed; top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    background: rgba(0, 0, 0, 0.6); 
+    justify-content: center; align-items: center;">
+  <div>
+    <div class="modal-content">
+    <!-- <span class="close" id="closeModal">&times;</span> -->
+    <h2>Share File</h2>
+
+    <!-- Option Tabs -->
+    <div style="margin-bottom: 10px;">
+      <button id="emailOptionBtn">Share via Email</button>
+      <button id="linkOptionBtn">Generate Link</button>
+    <button class="cancelShareBtn" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px;">Cancel</button>
+
+    </div>
+
+    <!-- Email Share Form -->
+    <div id="emailForm" style="display:none;">
+    <label for="recipientEmail">Recipient Email:</label><br />
+    <input type="email" id="recipientEmail" placeholder="example@mail.com" style="width: 100%; margin-bottom: 10px;" /><br />
+    <label for="sharePassword">Password:</label><br />
+    <input type="password" id="sharePassword" placeholder="Enter password" style="width: 100%; margin-bottom: 10px;" /><br />
+    <label for="expiryDate">Expiry Date (optional):</label><br />
+    <input type="datetime-local" id="expiryDate" style="width: 100%; margin-bottom: 15px;" /><br />
+    <button id="sendShareBtn" style="margin-right: 5px; background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px;">Share File</button>
+    <!-- <button class="cancelShareBtn" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px;">Cancel</button> -->
+    <p id="shareStatus" style="margin-top: 10px; color: green;"></p>
+    </div>
+
+    <!-- Link Share Form -->
+    <div id="linkForm" style="display:none;">
+      <label>Password:</label>
+      <input type="password" id="linkPassword" placeholder="Set a password" required>
+
+      <label>Expiry (Optional):</label>
+      <input type="datetime-local" id="linkExpiry">
+
+      <button id="generateLinkBtn">Generate Link</button>
+      <!-- <button class="cancelShareBtn" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px;">Cancel</button> -->
+
+      <div id="linkContainer" style="display:none; margin-top:10px;">
+        <input type="text" id="generatedLink" readonly style="width:80%;">
+        <button id="copyLinkBtn">Copy Link</button>
+        
+      </div>
+    </div>
+  </div>
+    <!-- -------------------------------------- -->
+    <!-- <h3>Share File</h3> -->
+    <!-- <label for="recipientEmail">Recipient Email:</label><br />
+    <input type="email" id="recipientEmail" placeholder="example@mail.com" style="width: 100%; margin-bottom: 10px;" /><br />
+    <label for="sharePassword">Password:</label><br />
+    <input type="password" id="sharePassword" placeholder="Enter password" style="width: 100%; margin-bottom: 10px;" /><br />
+    <label for="expiryDate">Expiry Date (optional):</label><br />
+    <input type="datetime-local" id="expiryDate" style="width: 100%; margin-bottom: 15px;" /><br />
+    <button id="sendShareBtn" style="margin-right: 5px; background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px;">Share File</button>
+    <button class="cancelShareBtn" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px;">Cancel</button>
+    <p id="shareStatus" style="margin-top: 10px; color: green;"></p> -->
+    
+  </div>
+</div>
+
+</body>
+</html>

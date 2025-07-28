@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure Share - Login</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Secure Share</h1>
+        <h2>Login</h2>
+        <input type="email" id="login-email" placeholder="Email" />
+        <input type="password" id="login-password" placeholder="Password" />
+        <button id="login-btn">Login</button>
+        <p>New user? <a href="index.html">Register here</a></p>
+    </div>
+
+    <script type="module">
+        import { loginUser } from "./script.js";
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            if (email && password) {
+                loginUser(email, password);
+            } else {
+                alert('Please enter email and password!');
+            }
+        });
+    </script>
+</body>
+</html>

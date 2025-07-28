@@ -1,0 +1,34 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure Share - Register</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Secure Share</h1>
+        <h2>Create Account</h2>
+        <input type="email" id="register-email" placeholder="Email" />
+        <input type="password" id="register-password" placeholder="Password" />
+        <button id="register-btn">Register</button>
+        <p>Already registered? <a href="login.html">Login here</a></p>
+    </div>
+
+    <script type="module">
+        import { registerUser } from "./script.js";
+        document.getElementById('register-btn').addEventListener('click', () => {
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            if (email && password) {
+                registerUser(email, password);
+            } else {
+                alert('Please enter email and password!');
+            }
+        });
+    </script>
+</body>
+</html>

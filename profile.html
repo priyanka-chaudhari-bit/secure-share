@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure Share - Profile</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="script.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    #back-dashboard {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: #007bff;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    #back-dashboard:hover {
+      background-color: #0056b3;
+    }
+    .container {
+      background: #fff;
+      padding: 25px 30px;
+      border-radius: 8px;
+      box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+      width: 70%;
+      max-width: 400px;
+      margin: 100px auto;
+    }
+    .container h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .profile-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .profile-table td {
+      padding: 8px 5px;
+      font-size: 16px;
+      color: #555;
+    }
+    .profile-table td.label {
+      text-align: left;
+      font-weight: bold;
+      color: #333;
+      width: 40%;
+    }
+    .profile-table td.value {
+      text-align: left;
+      width: 60%;
+      word-break: break-word;
+    }
+    #btns {
+      text-align: center;
+    }
+    .btn {
+      padding: 8px 20px;
+      width: 100%;
+      /* height:80% */
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-logout {
+      background-color: #4c9aed;
+      color: #fff;
+    }
+    .btn-change {
+      background-color: #50d16e;
+      color: #fff;
+    }
+    .btn-delete {
+      background-color: #e74253;
+      color: #fff;
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 400px;
+      border-radius: 8px;
+    }
+    .modal-content h3 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .modal-content input[type="password"] {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .modal-content button {
+      margin-top: 10px;
+      width: 100%;
+    }
+    .close-btn {
+      background-color: #6c757d;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <!-- Back to Dashboard button -->
+  <a href="dashboard.html" id="back-dashboard">Back to Dashboard</a>
+
+  <div class="container">
+    <h1>My Profile</h1>
+
+    <table class="profile-table">
+      <tr>
+        <td class="label">Email:</td>
+        <td class="value" id="user-email">Loading...</td>
+      </tr>
+      <tr>
+        <td class="label">User ID:</td>
+        <td class="value" id="user-uid">Loading...</td>
+      </tr>
+      <tr>
+        <td class="label">Registered On:</td>
+        <td class="value" id="user-registered">Loading...</td>
+      </tr>
+    </table>
+
+    <div id="btns">
+      <button id="logout-btn" class="btn btn-logout">Logout</button>
+      <button id="change-password-btn" class="btn btn-change">Change Password</button>
+      <button id="delete-account-btn" class="btn btn-delete">Delete Account</button>
+    </div>
+  </div>
+
+  <!-- Modal for changing password -->
+  <div id="changePasswordModal" class="modal">
+    <div class="modal-content">
+      <h3>Change Password</h3>
+      <input type="password" id="current-password" placeholder="Current Password" />
+      <input type="password" id="new-password" placeholder="New Password" />
+      <input type="password" id="confirm-new-password" placeholder="Re-enter New Password" />
+      <button id="update-password-btn" class="btn btn-change">Update Password</button>
+      <button id="close-modal-btn" class="btn close-btn">Cancel</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getDatabase, ref as dbRef, get, remove } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+    import {firebaseConfig} from './script.js';
+   
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+
+    const userEmail = document.getElementById("user-email");
+    const userUid = document.getElementById("user-uid");
+    const userRegistered = document.getElementById("user-registered");
+    const logoutBtn = document.getElementById("logout-btn");
+    const changePasswordBtn = document.getElementById("change-password-btn");
+    const deleteBtn = document.getElementById("delete-account-btn");
+
+    const modal = document.getElementById("changePasswordModal");
+    const closeModalBtn = document.getElementById("close-modal-btn");
+    const updatePasswordBtn = document.getElementById("update-password-btn");
+
+    let isLoggingOut = false;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        userEmail.textContent = user.email;
+        userUid.textContent = user.uid;
+
+        const snapshot = await get(dbRef(database, `users/${user.uid}`));
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          userRegistered.textContent = new Date(userData.createdAt).toLocaleString();
+        } else {
+          userRegistered.textContent = "N/A";
+        }
+      } else if (!isLoggingOut) {
+        alert("Please login first!");
+        window.location.href = "login.html";
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      isLoggingOut = true;
+      signOut(auth).then(() => {
+        alert("Logged out successfully!");
+        window.location.href = "login.html";
+      }).catch((err) => {
+        alert("Error logging out: " + err.message);
+      });
+    });
+
+    changePasswordBtn.addEventListener("click", () => {
+      modal.style.display = "block";
+    });
+
+    closeModalBtn.addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+
+    updatePasswordBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      const currentPassword = document.getElementById("current-password").value;
+      const newPassword = document.getElementById("new-password").value;
+      const confirmNewPassword = document.getElementById("confirm-new-password").value;
+
+      if (!currentPassword || !newPassword || !confirmNewPassword) {
+        alert("Please fill in all fields.");
+        return;
+      }
+
+      if (newPassword !== confirmNewPassword) {
+        alert("New passwords do not match.");
+        return;
+      }
+
+      try {
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
+        await updatePassword(user, newPassword);
+        alert("Password updated successfully!");
+        modal.style.display = "none";
+      } catch (err) {
+        console.error(err);
+        alert("Error updating password: " + err.message);
+      }
+    });
+
+    deleteBtn.addEventListener("click", async () => {
+      if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+        const user = auth.currentUser;
+
+        if (user) {
+          try {
+            const password = prompt("Please re-enter your password to confirm deletion:");
+            const credential = EmailAuthProvider.credential(user.email, password);
+            await reauthenticateWithCredential(user, credential);
+
+            await remove(dbRef(database, `users/${user.uid}`));
+            await deleteUser(user);
+
+            alert("Account deleted successfully.");
+            window.location.href = "index.html";
+          } catch (err) {
+            console.error(err);
+            alert("Error deleting account: " + err.message);
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
